@@ -45,23 +45,31 @@ def webhook():
     # Handle incoming messages
     data = request.json
     if data.get('object') == 'instagram':
-        for entry in data['entry']:
-            for messaging in entry['messaging']:
-                sender_id = messaging['sender']['id']
-                message_text = messaging['message']['text']
+        for entry in data.get('entry', []):
+            # Periksa apakah ada key 'messaging'
+            if 'messaging' in entry:
+                for messaging in entry['messaging']:
+                    sender_id = messaging['sender']['id']
+                    if 'text' in messaging['message']:
+                        message_text = messaging['message']['text']
 
-                # Generate reply
-                reply = generate_gemini_reply(message_text)
+                        # Generate reply
+                        reply = generate_gemini_reply(message_text)
 
-                # Send reply via Instagram API
-                access_token = get_access_token()
-                url = f"https://graph.facebook.com/v19.0/{PAGE_ID}/messages"
-                params = {
-                    'access_token': access_token,
-                    'recipient': json.dumps({'id': sender_id}),
-                    'message': json.dumps({'text': reply})
-                }
-                requests.post(url, params=params)
+                        # Send reply via Instagram API
+                        try:
+                            access_token = get_access_token()
+                            url = f"https://graph.facebook.com/v19.0/{PAGE_ID}/messages"
+                            params = {
+                                'access_token': access_token,
+                                'recipient': json.dumps({'id': sender_id}),
+                                'message': json.dumps({'text': reply})
+                            }
+                            requests.post(url, params=params)
+                        except Exception as e:
+                            print(f"Error sending reply: {e}")
+            else:
+                print(f"No 'messaging' key in entry: {entry}")
 
     return jsonify(success=True), 200
 
