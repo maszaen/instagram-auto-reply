@@ -1,0 +1,6 @@
+flask
+requests
+json
+gunicorn
+google-cloud-aiplatform
+google-cloud-secret-manager
