@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 from flask import Flask, request, jsonify
 from google.cloud import secretmanager, aiplatform
@@ -44,32 +45,40 @@ def webhook():
 
     # Handle incoming messages
     data = request.json
+    print("Received data:", json.dumps(data, indent=2))  # Debugging log
+
     if data.get('object') == 'instagram':
         for entry in data.get('entry', []):
-            # Periksa apakah ada key 'messaging'
-            if 'messaging' in entry:
-                for messaging in entry['messaging']:
-                    sender_id = messaging['sender']['id']
-                    if 'text' in messaging['message']:
-                        message_text = messaging['message']['text']
+            for messaging in entry.get('messaging', []):
+                sender_id = messaging.get('sender', {}).get('id')
+                message_text = messaging.get('message', {}).get('text')
 
-                        # Generate reply
-                        reply = generate_gemini_reply(message_text)
+                if sender_id and message_text:
+                    print(f"Received message: {message_text} from {sender_id}")
 
-                        # Send reply via Instagram API
-                        try:
-                            access_token = get_access_token()
-                            url = f"https://graph.facebook.com/v19.0/{PAGE_ID}/messages"
-                            params = {
-                                'access_token': access_token,
-                                'recipient': json.dumps({'id': sender_id}),
-                                'message': json.dumps({'text': reply})
-                            }
-                            requests.post(url, params=params)
-                        except Exception as e:
-                            print(f"Error sending reply: {e}")
-            else:
-                print(f"No 'messaging' key in entry: {entry}")
+                    # Generate reply
+                    reply = generate_gemini_reply(message_text)
+
+                    # Send reply via Instagram API
+                    try:
+                        access_token = get_access_token()
+                        url = f"https://graph.facebook.com/v19.0/me/messages"
+                        headers = {"Content-Type": "application/json"}
+                        payload = {
+                            "recipient": {"id": sender_id},
+                            "message": {"text": reply}
+                        }
+
+                        response = requests.post(
+                            url,
+                            json=payload,
+                            headers=headers,
+                            params={"access_token": access_token}
+                        )
+
+                        print("Send message response:", response.json())  # Debug response
+                    except Exception as e:
+                        print(f"Error sending reply: {e}")
 
     return jsonify(success=True), 200
 
