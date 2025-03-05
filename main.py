@@ -9,7 +9,7 @@ app = Flask(__name__)
 # Config
 PROJECT_ID = "apis-camp"
 SECRET_NAME = "instagram-access-token"
-PAGE_ID = ""
+PAGE_ID = "585261331336119"
 VERIFY_TOKEN = "webhook-instagram-token-209-5599-2709"
 
 # Init clients
