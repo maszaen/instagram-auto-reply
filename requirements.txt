@@ -1,6 +1,5 @@
 flask
-requests
-json
+request
 gunicorn
 google-cloud-aiplatform
 google-cloud-secret-manager

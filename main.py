@@ -1,13 +1,12 @@
 import os
 import requests
-import json
 from flask import Flask, request, jsonify
 from google.cloud import secretmanager, aiplatform
 
 app = Flask(__name__)
 
 # Config
-PROJECT_ID = "apis-camp"
+PROJECT_ID = "apiscamp"
 SECRET_NAME = "instagram-access-token"
 PAGE_ID = "585261331336119"
 VERIFY_TOKEN = "webhook-instagram-token-209-5599-2709"
