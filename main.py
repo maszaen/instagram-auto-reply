@@ -1,5 +1,4 @@
 import os
-import json
 import requests
 from flask import Flask, request, jsonify
 from google.cloud import secretmanager, aiplatform
@@ -9,8 +8,9 @@ app = Flask(__name__)
 # Config
 PROJECT_ID = "apiscamp"
 SECRET_NAME = "instagram-access-token"
-PAGE_ID = "585261331336119"
 VERIFY_TOKEN = "webhook-instagram-token-209-5599-2709"
+
+INSTAGRAM_BUSINESS_ID = "17841413148402065"
 
 # Init clients
 aiplatform.init(project=PROJECT_ID)
@@ -31,10 +31,33 @@ def generate_gemini_reply(message):
     return response.text
 
 
+def send_instagram_reply(sender_id, reply_text):
+    try:
+        access_token = get_access_token()
+        url = f"https://graph.facebook.com/v19.0/{INSTAGRAM_BUSINESS_ID}/messages"
+
+        payload = {
+            "recipient": {"id": sender_id},
+            "message": {"text": reply_text}
+        }
+
+        headers = {"Content-Type": "application/json"}
+
+        response = requests.post(url, headers=headers, json=payload, params={"access_token": access_token})
+
+        if response.status_code == 200:
+            print(f"✅ Reply terkirim ke {sender_id}: {reply_text}")
+        else:
+            print(f"❌ Gagal mengirim reply: {response.text}")
+
+    except Exception as e:
+        print(f"🔥 Error send_instagram_reply: {e}")
+
+
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
-        # Verify webhook
+        # Verifikasi webhook dari Meta
         hub_mode = request.args.get('hub.mode')
         hub_token = request.args.get('hub.verify_token')
         hub_challenge = request.args.get('hub.challenge')
@@ -43,42 +66,24 @@ def webhook():
             return hub_challenge, 200
         return "Verification failed", 403
 
-    # Handle incoming messages
     data = request.json
-    print("Received data:", json.dumps(data, indent=2))  # Debugging log
+    print("📩 Webhook received:", json.dumps(data, indent=2))  # Debugging log
 
     if data.get('object') == 'instagram':
         for entry in data.get('entry', []):
-            for messaging in entry.get('messaging', []):
-                sender_id = messaging.get('sender', {}).get('id')
-                message_text = messaging.get('message', {}).get('text')
+            for change in entry.get('changes', []):
+                message_data = change.get('value', {}).get('messages', [])
 
-                if sender_id and message_text:
-                    print(f"Received message: {message_text} from {sender_id}")
+                for message in message_data:
+                    sender_id = message.get("from", {}).get("id")
+                    message_text = message.get("text", "")
 
-                    # Generate reply
-                    reply = generate_gemini_reply(message_text)
+                    if sender_id and message_text:
+                        print(f"📨 Pesan dari {sender_id}: {message_text}")
 
-                    # Send reply via Instagram API
-                    try:
-                        access_token = get_access_token()
-                        url = f"https://graph.facebook.com/v19.0/me/messages"
-                        headers = {"Content-Type": "application/json"}
-                        payload = {
-                            "recipient": {"id": sender_id},
-                            "message": {"text": reply}
-                        }
+                        reply = generate_gemini_reply(message_text)
 
-                        response = requests.post(
-                            url,
-                            json=payload,
-                            headers=headers,
-                            params={"access_token": access_token}
-                        )
-
-                        print("Send message response:", response.json())  # Debug response
-                    except Exception as e:
-                        print(f"Error sending reply: {e}")
+                        send_instagram_reply(sender_id, reply)
 
     return jsonify(success=True), 200
 
